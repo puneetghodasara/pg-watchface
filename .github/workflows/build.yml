@@ -1,0 +1,46 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python packages
+        run: pip install pillow xmlschema
+
+      - name: Generate watch face
+        run: python tools/make_face.py proj
+
+      - name: Validate against the Watch Face Format v2 spec
+        run: |
+          git clone --depth 1 https://github.com/google/watchface tools/wff-spec
+          python tools/validate.py tools/wff-spec/third_party/wff/specification/documents/2/watchface.xsd proj/res/raw/watchface.xml
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PROPERTIES: ${{ secrets.KEYSTORE_PROPERTIES }}
+        run: |
+          mkdir -p proj/signing
+          echo "$KEYSTORE_B64" | base64 -d > proj/signing/raincomb.jks
+          printf '%s\n' "$KEYSTORE_PROPERTIES" > proj/signing/keystore.properties
+
+      - name: Build and sign APK
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          JAR=$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)/android.jar
+          BUILD_TOOLS="$BT" ANDROID_JAR="$JAR" bash proj/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RainComb-${{ github.run_number }}
+          path: proj/dist/RainComb.apk

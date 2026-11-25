@@ -70,7 +70,7 @@ LISTS = {  # id: (label, default option, [(option id, label)])
     'tunit': ('Temperature', 'w', [('w', 'Follow watch'), ('c', 'Celsius'), ('f', 'Fahrenheit')]),
 }
 STRINGS = {'app_name': 'Rain Comb', 'cfg_theme': 'Color pair', 'cfg_event': 'Next event',
-           'cfg_energy': 'Energy score', 'cfg_sleep': 'Sleep score'}
+           'cfg_energy': 'Energy score', 'cfg_sleep': 'Sleep'}
 
 
 def user_configurations():
@@ -343,8 +343,12 @@ def event_slot():
 
     def body(tmpl, params):
         return pill + image(16, (h - 24) / 2, 24, 'ic_cal', ACC) + text(48, 4, w - 64, h - 8, tmpl, params, S_ROW, NEU, 'START', ellipsis=True)
-    # Only real events have a title; 'No upcoming events' has none, so the row hides itself.
-    long_ = cond([('[COMPLICATION.TITLE] != null', body('%s  %s', ['[COMPLICATION.TITLE]', '[COMPLICATION.TEXT]']))])
+    # Real events have a title. Without one ('No upcoming events') the row is drawn faint: no pill, dim text.
+    tw_ = tw('No upcoming events', S_ROW - 2)
+    xi = (w - (20 + 8 + tw_)) / 2
+    faint = (image(xi, (h - 20) / 2, 20, 'ic_cal', NEU, 70)
+             + text(xi + 28, 4, w - xi - 28, h - 8, '%s', ['[COMPLICATION.TEXT]'], S_ROW - 2, NEU, 'START', 80, ellipsis=True))
+    long_ = cond([('[COMPLICATION.TITLE] != null', body('%s  %s', ['[COMPLICATION.TITLE]', '[COMPLICATION.TEXT]']))], faint)
     return ('<ComplicationSlot slotId="0" name="next_event" displayName="cfg_event" x="%d" y="%d" width="%d" height="%d" '
             'supportedTypes="LONG_TEXT SHORT_TEXT EMPTY" isCustomizable="FALSE"><Variant mode="AMBIENT" target="alpha" value="0"/>'
             '<DefaultProviderPolicy defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="LONG_TEXT"/>'

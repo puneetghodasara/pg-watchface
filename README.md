@@ -1,4 +1,4 @@
-# Rain Comb
+# pg-watchface (Rain Comb)
 
 A two-tone Watch Face Format (WFF v2) watch face for Wear OS, built for a Galaxy Watch5.
 
@@ -14,6 +14,7 @@ A two-tone Watch Face Format (WFF v2) watch face for Wear OS, built for a Galaxy
 | `tools/make_face.py` | Generates `proj/res/raw/watchface.xml` and `strings.xml` |
 | `tools/validate.py` | Checks the XML against Google's WFF schema |
 | `proj/` | Android resources, manifest and `build.sh` (aapt2 + apksigner, no Gradle) |
+| `tools/make_preview.py` | Turns a watch screenshot into the face-picker thumbnail `preview.png` |
 | `deploy.sh` | Local: generate, validate, build, install on the watch over Wi-Fi, screenshot |
 
 Test switches for `deploy.sh`: `RC_SHIFT=<hours>` (layout behaves as if it were later) and

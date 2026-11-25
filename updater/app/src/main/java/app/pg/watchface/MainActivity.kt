@@ -36,9 +36,10 @@ class MainActivity : Activity() {
     }
 
     private fun check() {
-        status.text = "Checking GitHub…"
+        val last = SelfInstaller.lastResult(this)?.let { "\n$it" } ?: ""
+        status.text = "App ${SelfInstaller.currentVersion(this)}$last\nChecking GitHub…"
         scope.launch {
-            val msg = runCatching { Updater.checkAndUpdate(applicationContext) }
+            val msg = runCatching { Updater.checkAndUpdate(applicationContext, interactive = true) }
                 .getOrElse { "Failed: ${it.message}" }
             launch(Dispatchers.Main) { status.text = msg }
         }

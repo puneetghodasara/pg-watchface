@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 /** Background check for a new face release, a few times a day and only when online. */
 class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result =
-        runCatching { Updater.checkAndUpdate(applicationContext) }
+        runCatching { Updater.checkAndUpdate(applicationContext, interactive = false) }
             .fold({ Result.success() }, { Result.retry() })
 
     companion object {

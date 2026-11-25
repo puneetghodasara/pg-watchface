@@ -12,40 +12,44 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Checks the latest GitHub release of the face and installs or updates it through Watch Face Push.
+ * Checks the latest GitHub release, updates the face through Watch Face Push, then updates this app itself.
  *
  * Release contract (made by the CI workflow): tag "face-<versionCode>", assets
- * "RainComb.apk" and "RainComb_token.txt" (Watch Face Push validation token).
+ * "RainComb.apk", "RainComb_token.txt" (Watch Face Push validation token),
+ * "PgWatchface-installer.apk" (this app) and "release.json" ({"face": n, "installer": n}).
  */
 object Updater {
-    private const val TAG = "PgWatchface"
+    const val TAG = "PgWatchface"
     private const val LATEST = "https://api.github.com/repos/puneetghodasara/pg-watchface/releases/latest"
     const val FACE_PACKAGE = "app.pg.watchface.watchfacepush.raincomb"
 
-    suspend fun checkAndUpdate(context: Context): String = withContext(Dispatchers.IO) {
-        val manager = WatchFacePushManagerFactory.createWatchFacePushManager(context)
-
+    /** [interactive]: started from the app screen, so a system install prompt may be shown. */
+    suspend fun checkAndUpdate(context: Context, interactive: Boolean): String = withContext(Dispatchers.IO) {
         val release = JSONObject(httpText(LATEST))
         val tag = release.getString("tag_name")
-        val remoteVersion = tag.removePrefix("face-").toLongOrNull()
-            ?: return@withContext log("Latest release '$tag' is not a face release")
-        var apkUrl: String? = null
-        var tokenUrl: String? = null
-        val assets = release.getJSONArray("assets")
-        for (i in 0 until assets.length()) {
-            val a = assets.getJSONObject(i)
-            when (a.getString("name")) {
-                "RainComb.apk" -> apkUrl = a.getString("browser_download_url")
-                "RainComb_token.txt" -> tokenUrl = a.getString("browser_download_url")
-            }
+        val assets = mutableMapOf<String, String>()
+        val list = release.getJSONArray("assets")
+        for (i in 0 until list.length()) {
+            val a = list.getJSONObject(i)
+            assets[a.getString("name")] = a.getString("browser_download_url")
         }
-        if (apkUrl == null || tokenUrl == null) return@withContext log("Release $tag is missing its files")
+        val face = updateFace(context, tag, assets)
+        // Last: a successful self-update restarts this process.
+        val app = runCatching { updateSelf(context, assets, interactive) }
+            .getOrElse { Log.w(TAG, "App update failed", it); "App update failed: ${it.message}" }
+        log("$face\n$app")
+    }
 
+    private suspend fun updateFace(context: Context, tag: String, assets: Map<String, String>): String {
+        val remoteVersion = tag.removePrefix("face-").toLongOrNull() ?: return "Latest release '$tag' is not a face release"
+        val apkUrl = assets["RainComb.apk"]
+        val tokenUrl = assets["RainComb_token.txt"]
+        if (apkUrl == null || tokenUrl == null) return "Release $tag is missing its face files"
+
+        val manager = WatchFacePushManagerFactory.createWatchFacePushManager(context)
         val installed = manager.listWatchFaces().installedWatchFaceDetails
             .firstOrNull { it.packageName == FACE_PACKAGE }
-        if (installed != null && installed.versionCode.toLong() >= remoteVersion) {
-            return@withContext log("Up to date ($remoteVersion)")
-        }
+        if (installed != null && installed.versionCode.toLong() >= remoteVersion) return "Face up to date ($remoteVersion)"
 
         val apk = File(context.cacheDir, "face.apk")
         download(apkUrl, apk)
@@ -60,7 +64,24 @@ object Updater {
             }
         }
         apk.delete()
-        log(if (installed == null) "Installed $remoteVersion" else "Updated to $remoteVersion")
+        return if (installed == null) "Face installed ($remoteVersion)" else "Face updated to $remoteVersion"
+    }
+
+    private fun updateSelf(context: Context, assets: Map<String, String>, interactive: Boolean): String {
+        val current = SelfInstaller.currentVersion(context)
+        val infoUrl = assets["release.json"] ?: return "App $current (release has no app version)"
+        val apkUrl = assets["PgWatchface-installer.apk"] ?: return "App $current (release has no app)"
+        val remote = JSONObject(httpText(infoUrl)).optLong("installer", 0)
+        if (remote <= current) return "App up to date ($current)"
+        // In the background, don't download again for a version that is already waiting for a tap.
+        if (!interactive && SelfInstaller.awaitingConfirmation(context) == remote) {
+            return "App update $remote waiting: open the app to finish"
+        }
+        val apk = File(context.cacheDir, "app.apk")
+        download(apkUrl, apk)
+        SelfInstaller.install(context, apk, remote, interactive)
+        apk.delete()
+        return "Updating app to $remote…"
     }
 
     private fun log(msg: String): String {

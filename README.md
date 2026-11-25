@@ -28,11 +28,20 @@ latest GitHub Release every few hours (or on "Check now") and updates the face i
 Pushed faces must use the package `app.pg.watchface.watchfacepush.<name>` and carry a validation
 token from Google's `validator-push-cli` (`tools/push_token.sh`).
 
+The app also updates itself: after the face, it installs a newer `PgWatchface-installer.apk` from the
+same release over itself (Android's PackageInstaller; an app updating itself may skip the prompt).
+If the watch still asks for confirmation, a background check only remembers it and the prompt
+appears next time the app is opened. The app's version is the time of the last commit that
+changed `updater/`, so it only updates when its own code changed. `release.json` in each release
+lists both versions.
+
 ## CI
 
 Every push to `main` generates and validates the face, builds and signs it, creates its Watch Face
 Push token, builds the installer, and publishes a release `face-<versionCode>` with
-`RainComb.apk`, `RainComb_token.txt` and `PgWatchface-installer.apk`.
+`RainComb.apk`, `RainComb_token.txt`, `PgWatchface-installer.apk` and `release.json`.
+Only the newest 5 releases are kept. Runs on other branches (start them by hand) build
+everything but publish nothing; the files are kept as the run's `dist` artifact.
 Signing uses the repository secrets `KEYSTORE_B64`, `KEYSTORE_PROPERTIES` (face) and
 `UPDATER_KEYSTORE_B64`, `UPDATER_PROPERTIES` (installer). Fonts are subset for size
 (`tools/subset_fonts.sh`, originals in `tools/fonts-src/`).

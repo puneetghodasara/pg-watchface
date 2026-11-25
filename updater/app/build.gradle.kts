@@ -26,8 +26,11 @@ android {
         applicationId = "app.pg.watchface"
         minSdk = 36
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // CI passes -PversionCode = minutes since 1970 of the last commit touching updater/,
+        // so the app only offers itself as an update when its own code changed.
+        val code = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionCode = code
+        versionName = "1.$code"
     }
     buildTypes {
         release {

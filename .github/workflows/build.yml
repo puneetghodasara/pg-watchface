@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history: the installer's version comes from its last commit
 
       - uses: actions/setup-python@v5
         with:
@@ -61,14 +63,35 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
           echo "sdk.dir=$ANDROID_HOME" > updater/local.properties
-          cd updater && chmod +x gradlew && ./gradlew --no-daemon -q :app:assembleRelease
+          # Version = minutes since 1970 of the last commit that changed updater/, so the app on the
+          # watch only updates itself when its own code changed (not on every face release).
+          INSTALLER_VERSION=$(( $(git log -1 --format=%ct -- updater/) / 60 ))
+          echo "INSTALLER_VERSION=$INSTALLER_VERSION" >> "$GITHUB_ENV"
+          cd updater && chmod +x gradlew && ./gradlew --no-daemon -q :app:assembleRelease -PversionCode=$INSTALLER_VERSION
           cp app/build/outputs/apk/release/app-release.apk ../proj/dist/PgWatchface-installer.apk
+          printf '{"face": %s, "installer": %s}\n' "$FACE_VERSION" "$INSTALLER_VERSION" > ../proj/dist/release.json
+
+      - name: Keep build outputs (branch builds)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: proj/dist/
 
       - name: Publish release
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "face-$FACE_VERSION" \
-            proj/dist/RainComb.apk proj/dist/RainComb_token.txt proj/dist/PgWatchface-installer.apk \
+            proj/dist/RainComb.apk proj/dist/RainComb_token.txt proj/dist/PgWatchface-installer.apk proj/dist/release.json \
             --title "Watch face $FACE_VERSION" \
-            --notes "Built from ${GITHUB_SHA::7}. The PG Watchface app on the watch installs this automatically."
+            --notes "Built from ${GITHUB_SHA::7}. Installer app version $INSTALLER_VERSION. The PG Watchface app on the watch installs both automatically."
+
+      - name: Delete old releases (keep the newest 5)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 100 --json tagName,createdAt --jq 'sort_by(.createdAt) | reverse | .[5:] | .[].tagName' |
+            while read -r tag; do gh release delete "$tag" --cleanup-tag --yes; done

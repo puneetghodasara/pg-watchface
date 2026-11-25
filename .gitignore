@@ -17,3 +17,14 @@ proj/res/values/strings.xml
 # signing key: lives only here and in GitHub Actions secrets, never in git
 proj/signing/
 .DS_Store
+sdk/
+tools/bin/
+tools/wos/
+# updater build inputs/outputs
+updater/app/src/main/assets/default_watchface.apk
+updater/app/src/main/res/values/token.xml
+updater/signing/
+updater/local.properties
+updater/.gradle/
+updater/app/build/
+updater/build/

@@ -1,8 +1,12 @@
-name: Build APK
+name: Build and release
 
 on:
   push:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write   # to publish releases
 
 jobs:
   build:
@@ -13,6 +17,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
       - name: Install Python packages
         run: pip install pillow xmlschema
@@ -25,22 +34,41 @@ jobs:
           git clone --depth 1 https://github.com/google/watchface tools/wff-spec
           python tools/validate.py tools/wff-spec/third_party/wff/specification/documents/2/watchface.xsd proj/res/raw/watchface.xml
 
-      - name: Restore signing key
+      - name: Restore signing keys
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
           KEYSTORE_PROPERTIES: ${{ secrets.KEYSTORE_PROPERTIES }}
+          UPDATER_KEYSTORE_B64: ${{ secrets.UPDATER_KEYSTORE_B64 }}
+          UPDATER_PROPERTIES: ${{ secrets.UPDATER_PROPERTIES }}
         run: |
-          mkdir -p proj/signing
+          mkdir -p proj/signing updater/signing
           echo "$KEYSTORE_B64" | base64 -d > proj/signing/raincomb.jks
           printf '%s\n' "$KEYSTORE_PROPERTIES" > proj/signing/keystore.properties
+          echo "$UPDATER_KEYSTORE_B64" | base64 -d > updater/signing/updater.jks
+          printf '%s\n' "$UPDATER_PROPERTIES" > updater/signing/updater.properties
 
-      - name: Build and sign APK
+      - name: Build and sign watch face
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           JAR=$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)/android.jar
           BUILD_TOOLS="$BT" ANDROID_JAR="$JAR" bash proj/build.sh
+          echo "FACE_VERSION=$(grep -oE 'versionCode="[0-9]+"' proj/build/AndroidManifest.xml | grep -oE '[0-9]+')" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: RainComb-${{ github.run_number }}
-          path: proj/dist/RainComb.apk
+      - name: Watch Face Push validation token
+        run: bash tools/push_token.sh
+
+      - name: Build installer app
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          echo "sdk.dir=$ANDROID_HOME" > updater/local.properties
+          cd updater && chmod +x gradlew && ./gradlew --no-daemon -q :app:assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ../proj/dist/PgWatchface-installer.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "face-$FACE_VERSION" \
+            proj/dist/RainComb.apk proj/dist/RainComb_token.txt proj/dist/PgWatchface-installer.apk \
+            --title "Watch face $FACE_VERSION" \
+            --notes "Built from ${GITHUB_SHA::7}. The PG Watchface app on the watch installs this automatically."

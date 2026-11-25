@@ -19,7 +19,7 @@ INTER = ImageFont.truetype(os.path.join(RES, 'font/inter_medium.ttf'), 100)
 OUTFIT = ImageFont.truetype(os.path.join(RES, 'font/outfit_light.ttf'), 100)
 FT, FD = 'inter_medium', 'outfit_light'
 RED, AMBER, GREEN = '#ffff5a4e', '#ffffb44d', '#ff8fd67c'
-ACC, NEU, TINT, FULL, HAND = ('[CONFIGURATION.theme3.%d]' % i for i in range(5))
+ACC, NEU, TINT, FULL, HAND = ('[CONFIGURATION.theme4.%d]' % i for i in range(5))
 
 # type scale (watch pixels)
 S_TOP, S_TIME, S_ROW, S_LAB_H, S_LAB_T, S_TOM, S_AOD = 24, 118, 23, 15, 18, 21, 19
@@ -45,7 +45,7 @@ PRESETS = [
     ('mono', 'Mono', 'shade', '#0b0b0b', '#cfcfcf'),
 ]
 
-DEFAULT_THEME = 'ember'  # update test: should arrive on the watch via a GitHub release
+DEFAULT_THEME = 'sage'  # update test: should arrive on the watch via a GitHub release
 
 
 def mix(a, b, t):
@@ -77,7 +77,7 @@ STRINGS = {'app_name': 'Rain Comb', 'cfg_theme': 'Color pair', 'cfg_event': 'Nex
 
 def user_configurations():
     default = [p[0] for p in PRESETS].index(DEFAULT_THEME)
-    out = ['<UserConfigurations>', '<ColorConfiguration id="theme3" displayName="cfg_theme" defaultValue="%d">' % default]
+    out = ['<UserConfigurations>', '<ColorConfiguration id="theme4" displayName="cfg_theme" defaultValue="%d">' % default]
     for i, (pid, name, g, dial, acc) in enumerate(PRESETS):
         STRINGS['theme_' + pid] = name
         out.append('<ColorOption id="%d" displayName="theme_%s" colors="%s"/>' % (i, pid, ' '.join(theme_colors(g, dial, acc))))

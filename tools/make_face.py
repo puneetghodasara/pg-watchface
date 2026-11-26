@@ -64,7 +64,7 @@ PCT = '％'  # full-width percent sign: a plain % in a label crashes the watch's
 LISTS = {  # id: (label, default option, [(option id, label)])
     'dial2': ('Dial', '0', [('0', 'Black (best battery)'), ('1', 'Dark tint'), ('2', 'Full color')]),
     'mend': ('Morning ends', '11', [(str(h), '%d AM' % h if h < 12 else '12 PM') for h in (8, 9, 10, 11, 12)]),
-    'eve23': ('Evening starts', '23', [(str(h), '%d PM' % (h - 12)) for h in (17, 18, 19, 20, 21, 22, 23)]),
+    'eve23': ('Evening starts', '19', [(str(h), '%d PM' % (h - 12)) for h in (17, 18, 19, 20, 21, 22, 23)]),
     'uvt': ('UV alert at', '5', [(u, 'UV ' + u) for u in ('3', '5', '6', '8')]),
     'rth': ('Rain alert at', '35', [(r, r + PCT) for r in ('25', '35', '50', '70')]),
     'blow': ('Low battery at', '15', [(b, b + PCT) for b in ('10', '15', '20', '25')]),

@@ -341,17 +341,22 @@ def health_row():
 
 def event_slot():
     w, h = 350, 44
-    pill = ('<PartDraw x="0" y="0" width="%d" height="%d" alpha="23"><RoundRectangle x="0" y="0" width="%d" height="%d" '
+    pill = ('<PartDraw x="0" y="0" width="%d" height="%d" alpha="16"><RoundRectangle x="0" y="0" width="%d" height="%d" '
             'cornerRadiusX="22" cornerRadiusY="22"><Fill color="%s"/></RoundRectangle></PartDraw>') % (w, h, w, h, ACC)
 
+    # A real event is drawn at middle strength (about 60%): readable, but quieter than the time and health row.
     def body(tmpl, params):
-        return pill + image(16, (h - 24) / 2, 24, 'ic_cal', ACC) + text(48, 4, w - 64, h - 8, tmpl, params, S_ROW, NEU, 'START', ellipsis=True)
-    # Real events have a title. Without one ('No upcoming events') the row is drawn faint: no pill, dim text.
+        return pill + image(16, (h - 24) / 2, 24, 'ic_cal', ACC, 165) + text(48, 4, w - 64, h - 8, tmpl, params, S_ROW, NEU, 'START', 165, ellipsis=True)
+    # With no events the row is faint (about 30%): no pill, small dim text.
     tw_ = tw('No upcoming events', S_ROW - 2)
     xi = (w - (20 + 8 + tw_)) / 2
     faint = (image(xi, (h - 20) / 2, 20, 'ic_cal', NEU, 70)
              + text(xi + 28, 4, w - xi - 28, h - 8, '%s', ['[COMPLICATION.TEXT]'], S_ROW - 2, NEU, 'START', 80, ellipsis=True))
-    long_ = cond([('[COMPLICATION.TITLE] != null', body('%s  %s', ['[COMPLICATION.TITLE]', '[COMPLICATION.TEXT]']))], faint)
+    # Samsung's calendar sends events as text only (no title), so "no events" is recognised by its wording.
+    # If the watch can't evaluate this, the row falls back to the faint look, as before.
+    no_events = 'subText([COMPLICATION.TEXT], 0, 11) == "No upcoming"'
+    long_ = cond([('[COMPLICATION.TITLE] != null', body('%s  %s', ['[COMPLICATION.TITLE]', '[COMPLICATION.TEXT]'])),
+                  ('!(%s)' % no_events, body('%s', ['[COMPLICATION.TEXT]']))], faint)
     return ('<ComplicationSlot slotId="0" name="next_event" displayName="cfg_event" x="%d" y="%d" width="%d" height="%d" '
             'supportedTypes="LONG_TEXT SHORT_TEXT EMPTY" isCustomizable="FALSE"><Variant mode="AMBIENT" target="alpha" value="0"/>'
             '<DefaultProviderPolicy defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="LONG_TEXT"/>'

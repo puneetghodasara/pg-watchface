@@ -10,19 +10,30 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 
-/** Background check for a new face release, a few times a day and only when online. */
+/** Background check for a new release, at the cadence chosen in the app, only when online. */
 class UpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result =
         runCatching { Updater.checkAndUpdate(applicationContext, interactive = false) }
-            .fold({ Result.success() }, { Result.retry() })
+            .fold({ Result.success() }, {
+                UpdateSettings.recordCheck(applicationContext, "Failed: ${it.message}")
+                Result.retry()
+            })
 
     companion object {
+        private const val WORK = "face-update"
+
+        /** Applies the current settings: schedules at the chosen cadence, or cancels when auto-update is off. */
         fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<UpdateWorker>(3, TimeUnit.HOURS)
+            val wm = WorkManager.getInstance(context)
+            if (!UpdateSettings.isEnabled(context)) {
+                wm.cancelUniqueWork(WORK)
+                return
+            }
+            val request = PeriodicWorkRequestBuilder<UpdateWorker>(UpdateSettings.hours(context).toLong(), TimeUnit.HOURS)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
-            WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork("face-update", ExistingPeriodicWorkPolicy.KEEP, request)
+            // UPDATE keeps the existing schedule but applies a changed cadence.
+            wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
     }
 }

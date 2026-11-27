@@ -37,7 +37,7 @@ object Updater {
         // Last: a successful self-update restarts this process.
         val app = runCatching { updateSelf(context, assets, interactive) }
             .getOrElse { Log.w(TAG, "App update failed", it); "App update failed: ${it.message}" }
-        log("$face\n$app")
+        log("$face\n$app").also { UpdateSettings.recordCheck(context, it) }
     }
 
     private suspend fun updateFace(context: Context, tag: String, assets: Map<String, String>): String {

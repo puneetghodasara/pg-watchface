@@ -235,7 +235,7 @@ def battery_ring():
     ], arc(ACC, 77)))
 
 
-def runs_text(y, h, runs, align='CENTER'):
+def runs_text(y, h, runs, align='CENTER', x=0, w=450, alpha=None, ellipsis=False):
     """One centred line mixing text and icon runs, so nothing can overlap whatever the values."""
     body = ''
     for r in runs:
@@ -247,7 +247,9 @@ def runs_text(y, h, runs, align='CENTER'):
             body += '<BitmapFont family="wx" size="%d" color="%s"><Template><![CDATA[%%s]]>%s</Template></BitmapFont>' % (size, color, ps)
         else:
             body += '<Font family="%s" size="%d" color="%s"><Template><![CDATA[%s]]>%s</Template></Font>' % (FT, size, color, tmpl, ps)
-    return '<PartText x="0" y="%d" width="450" height="%d"><Text align="%s">%s</Text></PartText>' % (y, h, align, body)
+    a = '' if alpha is None else ' alpha="%d"' % alpha
+    el = ' ellipsis="TRUE" maxLines="1"' if ellipsis else ''
+    return '<PartText x="%d" y="%d" width="%d" height="%d"%s><Text align="%s"%s>%s</Text></PartText>' % (x, y, w, h, a, align, el, body)
 
 
 def top_line():
@@ -346,12 +348,11 @@ def event_slot():
 
     # A real event is drawn at middle strength (about 60%): readable, but quieter than the time and health row.
     def body(tmpl, params):
-        return pill + image(16, (h - 24) / 2, 24, 'ic_cal', ACC, 165) + text(48, 4, w - 64, h - 8, tmpl, params, S_ROW, NEU, 'START', 165, ellipsis=True)
+        runs = [('icon', '', ['33'], ACC, 22), ('t', '  ' + tmpl, params, NEU, S_ROW)]
+        return pill + runs_text(4, h - 8, runs, 'CENTER', 14, w - 28, 165, ellipsis=True)
     # With no events the row is faint (about 30%): no pill, small dim text.
-    tw_ = tw('No upcoming events', S_ROW - 2)
-    xi = (w - (20 + 8 + tw_)) / 2
-    faint = (image(xi, (h - 20) / 2, 20, 'ic_cal', NEU, 70)
-             + text(xi + 28, 4, w - xi - 28, h - 8, '%s', ['[COMPLICATION.TEXT]'], S_ROW - 2, NEU, 'START', 80, ellipsis=True))
+    faint = runs_text(4, h - 8, [('icon', '', ['33'], NEU, 19), ('t', '  %s', ['[COMPLICATION.TEXT]'], NEU, S_ROW - 2)],
+                      'CENTER', 14, w - 28, 75, ellipsis=True)
     # Samsung's calendar sends events as text only (no title), so "no events" is recognised by its wording.
     # If the watch can't evaluate this, the row falls back to the faint look, as before.
     no_events = 'subText([COMPLICATION.TEXT], 0, 11) == "No upcoming"'
@@ -491,10 +492,10 @@ def aod():
 
 def bitmap_fonts():
     out = '<BitmapFonts><BitmapFont name="wx">'
-    for i in range(33):
+    for i in range(34):
         tag = 'Character' if i < 10 else 'Word'
-        res = 'wx_d_%d' % i if i < 16 else ('wx_n_%d' % (i - 16) if i < 32 else 'ic_rain')
-        sz = 64 if res == 'ic_rain' else 96
+        res = 'wx_d_%d' % i if i < 16 else ('wx_n_%d' % (i - 16) if i < 32 else ('ic_rain' if i == 32 else 'ic_cal'))
+        sz = 64 if res.startswith('ic_') else 96
         out += '<%s name="%d" resource="%s" width="%d" height="%d"/>' % (tag, i, res, sz, sz)
     return out + '</BitmapFont></BitmapFonts>'
 
